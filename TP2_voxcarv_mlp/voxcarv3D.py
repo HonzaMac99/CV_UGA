@@ -34,6 +34,7 @@ if __name__ == "__main__":
     # Build 3D grids
     # 3D Grids are of size: resolution x resolution x resolution/2
     step = 2/resolution
+    print("Resolution: ", resolution)
 
     # The grids X, Y, Z allow to query the world position inside the volumetric representation:
     # given a volume location i,j,k, then X[i,j,k] gives it's x-world-coordinate
@@ -59,26 +60,52 @@ if __name__ == "__main__":
 
     # TODO: create an array with all loaded images
     # Example of image loading for i = 1
-    i=1
-    myFile = "images/image{0}.pgm".format(i) # read the input silhouettes
-    img = mpimg.imread(myFile)
-    if img.dtype == np.float32: # if not integer
-        img = (img * 255).astype(np.uint8)
+    imgs = []
+    for i in range(12):
+        myFile = "images/image{0}.pgm".format(i) # read the input silhouettes
+        print("Loading ", myFile)
+        img = mpimg.imread(myFile)
+        if img.dtype == np.float32: # if not integer
+            img = (img * 255).astype(np.uint8)
+        imgs.append(img)
 
     # Compute grid projection in images
     # TODO: TO BE COMPLETED
     # Loop over all grid elements in 3D
+    for i in range(resolution):
+        for j in range(resolution):
+            for k in range(resolution//2):
+                print(i, j, k)
 
-        # Loop over the cameras
+                x = X[i, j, k]
+                y = Y[i, j, k]
+                z = Z[i, j, k]
 
-            # Make sure you get the right camera calibration
-            # and the associated image
+                point_3D = np.vstack([x, y, z, 1])
 
-            # Project point
+                # Loop over the cameras
+                for cam_id in range(12):
 
-            # Check if projection is in the silhouette
+                    P = calib[cam_id].reshape(3, 4)
+                    img = imgs[cam_id]  # shape is [300, 300]
 
-            # if not in the silhouette, set the occupancy to zero
+                    # Project point
+                    point_2D = P @ point_3D
+                    point_2D = point_2D[:2] / point_2D[2]
+
+                    u = int(round(point_2D[0].item()))
+                    v = int(round(point_2D[1].item()))
+
+                    # !!! the matrix coords are inverted to the img coords !!!
+                    if 0 <= u < img.shape[1] and 0 <= v < img.shape[0]:
+                        silh = img[v, u]
+                    else:
+                        silh = 0
+
+                    # if not in the silhouette, set the occupancy to zero
+                    if silh == 0:
+                        occupancy[i, j, k] = 0
+                        break
 
     # Voxel visualization
     verts, faces, normals, values = measure.marching_cubes(occupancy, 0.25) # Marching cubes 
